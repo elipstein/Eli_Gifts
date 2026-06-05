@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Environment / secrets (never commit these — set them as GitHub Actions secrets)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
