@@ -105,3 +105,15 @@ main { padding: 16px; max-width: 640px; margin: 0 auto; }
   background: #fff;
 }
 .section-title { font-size: 1rem; color: var(--muted); margin: 22px 0 4px; }
+
+.add { margin-bottom: 8px; }
+.add > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 12px 4px;
+  list-style: none;
+}
+.add > summary::-webkit-details-marker { display: none; }
+.add[open] > summary { color: var(--accent); }
+.add-form button[type="submit"] { width: 100%; margin-top: 4px; }
+.form-status { margin: 10px 0 0; font-size: .9rem; color: var(--muted); }
