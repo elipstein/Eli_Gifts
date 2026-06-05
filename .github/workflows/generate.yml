@@ -1,0 +1,28 @@
+name: Generate gift ideas
+
+# Weekly batch job: generate fresh, web-verified gift ideas into Supabase.
+# Mondays at 14:00 UTC (≈ early Monday Pacific). Also runnable on demand from
+# the Actions tab (workflow_dispatch) — use that while tuning the prompt.
+on:
+  schedule:
+    - cron: "0 14 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run generate
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
