@@ -8,7 +8,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "generate": "node scripts/generate.mjs"
+    "generate": "node scripts/generate.mjs",
+    "generate:local": "node --env-file=.env scripts/generate.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",

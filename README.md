@@ -148,10 +148,10 @@ gift-engine/
 GitHub repo → Settings → Secrets and variables → Actions:
 - `ANTHROPIC_API_KEY`
 - `SUPABASE_URL`
-- `SUPABASE_SERVICE_KEY` — used by the Action to insert rows.
+- `SUPABASE_SECRET_KEY` — Supabase **secret key** (`sb_secret_…`), used by the Action to insert rows. (Supabase's current key system; replaces the legacy `service_role` key.)
 
 Committed in the client JS (public — acceptable under soft privacy):
-- `SUPABASE_URL` + `SUPABASE_ANON_KEY`.
+- `SUPABASE_URL` + `SUPABASE_PUBLISHABLE_KEY` (`sb_publishable_…`; replaces the legacy `anon` key).
 
 GitHub Pages: serve from the `/docs` folder on the main branch.
 
