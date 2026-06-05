@@ -46,7 +46,10 @@ const SUPABASE_URL = requireEnv('SUPABASE_URL');
 const SUPABASE_SECRET_KEY = requireEnv('SUPABASE_SECRET_KEY');
 requireEnv('ANTHROPIC_API_KEY'); // read implicitly by the Anthropic client
 
-const anthropic = new Anthropic(); // picks up ANTHROPIC_API_KEY from the env
+// Reads ANTHROPIC_API_KEY from the env. Generous timeout because web-search
+// runs take a few minutes; the request below also streams, which is the real
+// guard against timeouts.
+const anthropic = new Anthropic({ timeout: 15 * 60 * 1000 });
 const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY, {
   auth: { persistSession: false },
 });
@@ -117,14 +120,19 @@ const messages = [{ role: 'user', content: userPrompt }];
 
 let response;
 for (let i = 0; ; i++) {
-  response = await anthropic.messages.create({
+  // Stream rather than make one blocking call: web search can keep the request
+  // running for minutes, and streaming keeps the connection alive instead of
+  // tripping the request timeout. effort 'medium' trims tool calls / runtime.
+  const stream = anthropic.messages.stream({
     model: MODEL,
     max_tokens: 16000,
     thinking: { type: 'adaptive' },
+    output_config: { effort: 'medium' },
     system: SYSTEM_PROMPT,
     tools,
     messages,
   });
+  response = await stream.finalMessage();
 
   // Server-side tools run an internal loop; if it hits its iteration cap the
   // turn pauses. Re-send the assistant turn (no extra user message) to resume.
