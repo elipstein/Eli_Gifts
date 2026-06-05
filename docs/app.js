@@ -8,7 +8,7 @@
 // modern replacement for the legacy anon key.
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-const SUPABASE_URL = 'https://vusswtzedzeyyupmttoy.supabase.co;
+const SUPABASE_URL = 'https://vusswtzedzeyyupmttoy.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_ZUniAM46QvpY0aZCCblPGw_6OayJeaz';
 // ─────────────────────────────────────────────────────────────────────────────
 
