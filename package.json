@@ -1,0 +1,18 @@
+{
+  "name": "gift-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A self-running pipeline that generates tailored gift ideas, routes them for triage, and surfaces passed-on ideas back to me.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "generate": "node scripts/generate.mjs",
+    "generate:local": "node --env-file=.env scripts/generate.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.1",
+    "@supabase/supabase-js": "^2.107.0"
+  }
+}

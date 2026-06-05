@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My Gifts</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>My Gifts</h1>
+  </header>
+
+  <main>
+    <details class="add">
+      <summary>➕ Add an idea</summary>
+      <form id="add-form" class="add-form">
+        <div class="field">
+          <label for="f-title">Title *</label>
+          <input id="f-title" name="title" required placeholder="Manual espresso grinder…" />
+        </div>
+        <div class="field">
+          <label for="f-url">Link</label>
+          <input id="f-url" name="url" type="url" placeholder="https://…" />
+        </div>
+        <div class="field">
+          <label for="f-price">Price</label>
+          <input id="f-price" name="est_price" placeholder="$120–150" />
+        </div>
+        <div class="field">
+          <label for="f-category">Category</label>
+          <input id="f-category" name="category" placeholder="espresso" />
+        </div>
+        <div class="field">
+          <label for="f-desc">Why I want it</label>
+          <textarea id="f-desc" name="description" rows="2"></textarea>
+        </div>
+        <button class="btn keep" type="submit" id="add-submit">Add idea</button>
+        <p id="add-status" class="form-status" hidden></p>
+      </form>
+    </details>
+
+    <h2 class="section-title">Passed to you</h2>
+    <div id="passed-list" class="list"></div>
+  </main>
+
+  <script type="module">
+    import { CONFIG_OK, fetchIdeas, addIdea, ideaCard, showMessage } from './app.js';
+
+    const passedList = document.getElementById('passed-list');
+    const form = document.getElementById('add-form');
+    const submitBtn = document.getElementById('add-submit');
+    const statusEl = document.getElementById('add-status');
+
+    if (!CONFIG_OK) {
+      showMessage(passedList, 'Set your Supabase URL and publishable key in docs/app.js to load ideas.');
+    } else {
+      loadPassed();
+    }
+
+    async function loadPassed() {
+      showMessage(passedList, 'Loading…');
+      try {
+        // Only ever query passed items — kept items are never fetched here.
+        const ideas = await fetchIdeas('passed', 'status_changed_at');
+        if (!ideas.length) { showMessage(passedList, 'Nothing here yet.'); return; }
+        passedList.replaceChildren(...ideas.map((idea) => ideaCard(idea)));
+      } catch (e) {
+        showMessage(passedList, 'Could not load ideas: ' + e.message);
+      }
+    }
+
+    function flash(text) {
+      statusEl.textContent = text;
+      statusEl.hidden = false;
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const data = new FormData(form);
+      const title = (data.get('title') || '').toString().trim();
+      if (!title) return;
+
+      const fields = {
+        title,
+        url: (data.get('url') || '').toString().trim() || null,
+        est_price: (data.get('est_price') || '').toString().trim() || null,
+        category: (data.get('category') || '').toString().trim() || null,
+        description: (data.get('description') || '').toString().trim() || null,
+      };
+
+      submitBtn.disabled = true;
+      flash('Adding…');
+      try {
+        await addIdea(fields); // writes status: 'new', source: 'eli'
+        form.reset();
+        flash('Added ✓ — it’ll show up on her review list.');
+      } catch (e) {
+        flash('Could not add: ' + e.message);
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
