@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gift Ideas</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Gift Ideas</h1>
+    <nav class="tabs">
+      <button id="tab-new" class="tab active" type="button">New</button>
+      <button id="tab-kept" class="tab" type="button">Kept</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="new-section">
+      <div id="new-list" class="list"></div>
+    </section>
+    <section id="kept-section" hidden>
+      <div id="kept-list" class="list"></div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { CONFIG_OK, fetchIdeas, setStatus, ideaCard, el, showMessage } from './app.js';
+
+    const newSection = document.getElementById('new-section');
+    const keptSection = document.getElementById('kept-section');
+    const newList = document.getElementById('new-list');
+    const keptList = document.getElementById('kept-list');
+    const tabNew = document.getElementById('tab-new');
+    const tabKept = document.getElementById('tab-kept');
+
+    const EMPTY_NEW = 'No new ideas right now ✨';
+
+    if (!CONFIG_OK) {
+      showMessage(newList, 'Set your Supabase URL and publishable key in docs/app.js to load ideas.');
+    } else {
+      loadNew();
+    }
+
+    async function loadNew() {
+      showMessage(newList, 'Loading…');
+      try {
+        const ideas = await fetchIdeas('new', 'created_at');
+        if (!ideas.length) { showMessage(newList, EMPTY_NEW); return; }
+        newList.replaceChildren(...ideas.map(renderNewCard));
+      } catch (e) {
+        showMessage(newList, 'Could not load ideas: ' + e.message);
+      }
+    }
+
+    function renderNewCard(idea) {
+      const keep = el('button', { class: 'btn keep', type: 'button', text: 'Keep' });
+      const pass = el('button', { class: 'btn pass', type: 'button', text: 'Pass' });
+      const card = ideaCard(idea, el('div', { class: 'actions' }, [keep, pass]));
+
+      async function decide(status) {
+        keep.disabled = pass.disabled = true;
+        try {
+          await setStatus(idea.id, status);
+          card.classList.add('removing');
+          setTimeout(() => {
+            card.remove();
+            if (!newList.querySelector('.card')) showMessage(newList, EMPTY_NEW);
+          }, 180);
+        } catch (e) {
+          keep.disabled = pass.disabled = false;
+          alert('Could not save: ' + e.message);
+        }
+      }
+      keep.addEventListener('click', () => decide('kept'));
+      pass.addEventListener('click', () => decide('passed'));
+      return card;
+    }
+
+    async function loadKept() {
+      showMessage(keptList, 'Loading…');
+      try {
+        const ideas = await fetchIdeas('kept', 'status_changed_at');
+        if (!ideas.length) { showMessage(keptList, 'Nothing kept yet.'); return; }
+        keptList.replaceChildren(...ideas.map((idea) => ideaCard(idea)));
+      } catch (e) {
+        showMessage(keptList, 'Could not load kept ideas: ' + e.message);
+      }
+    }
+
+    function selectTab(which) {
+      const isNew = which === 'new';
+      tabNew.classList.toggle('active', isNew);
+      tabKept.classList.toggle('active', !isNew);
+      newSection.hidden = !isNew;
+      keptSection.hidden = isNew;
+      if (!isNew && CONFIG_OK) loadKept();
+    }
+    tabNew.addEventListener('click', () => selectTab('new'));
+    tabKept.addEventListener('click', () => selectTab('kept'));
+  </script>
+</body>
+</html>
