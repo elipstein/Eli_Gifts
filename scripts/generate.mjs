@@ -15,8 +15,9 @@
 // Model + tool strings were confirmed against the Anthropic docs, as the build
 // spec instructs — these move, so re-check if you bump them:
 //   - claude-sonnet-4-6      (the spec asks for "a current Sonnet model")
-//   - web_search_20260209    (current web search tool; dynamic filtering is automatic)
-//   - web_fetch_20260209     (lets the model confirm a specific buy link / price)
+//   - web_search_20250305    (basic web search; no code-execution container)
+//
+// Tip: set SMOKE=1 to dry-run the whole pipeline cheaply (Haiku, no web search).
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -25,10 +26,18 @@ import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
 
 const MODEL = 'claude-sonnet-4-6';
-const WEB_SEARCH_TOOL = 'web_search_20260209';
-const WEB_FETCH_TOOL = 'web_fetch_20260209';
+// Basic web search (no dynamic filtering) — it does NOT spin up a code-execution
+// container, so there's nothing to thread through pause/resume. The newer
+// _20260209 does, which is what 400'd an earlier run. max_uses hard-caps spend.
+const WEB_SEARCH_TOOL = 'web_search_20250305';
+const MAX_SEARCHES = 8;
 const IDEAS_WANTED = '5 to 10';
 const MAX_CONTINUATIONS = 6; // safety cap for server-tool `pause_turn` resumes
+
+// SMOKE=1 → cheap end-to-end test: Haiku, no web search, ~a fraction of a cent.
+// Proves DB read → model → parse → insert before paying for a real run. The
+// ideas it inserts are flagged [TEST] and are not web-verified; delete them after.
+const SMOKE = process.env.SMOKE === '1' || process.env.SMOKE === 'true';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const INTERESTS_PATH = join(__dirname, '..', 'config', 'interests.md');
@@ -46,10 +55,10 @@ const SUPABASE_URL = requireEnv('SUPABASE_URL');
 const SUPABASE_SECRET_KEY = requireEnv('SUPABASE_SECRET_KEY');
 requireEnv('ANTHROPIC_API_KEY'); // read implicitly by the Anthropic client
 
-// Reads ANTHROPIC_API_KEY from the env. Generous timeout because web-search
-// runs take a few minutes; the request below also streams, which is the real
-// guard against timeouts.
-const anthropic = new Anthropic({ timeout: 15 * 60 * 1000 });
+// Reads ANTHROPIC_API_KEY from the env. Generous timeout for multi-minute
+// web-search runs (the request also streams). maxRetries: 0 so a failure fails
+// fast instead of silently re-running the whole search three times.
+const anthropic = new Anthropic({ timeout: 15 * 60 * 1000, maxRetries: 0 });
 const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY, {
   auth: { persistSession: false },
 });
@@ -72,7 +81,7 @@ console.log(`Found ${existingTitles.length} existing idea(s) — these will not 
 const SYSTEM_PROMPT = [
   'You are a meticulous personal gift scout. You surface real, specific,',
   'currently-purchasable products tailored to one person. For every item you',
-  'propose, use web search (and web fetch) to confirm it actually exists and is',
+  'propose, use web search to confirm it actually exists and is',
   'for sale right now, capture a working purchase link, and record a realistic',
   'current price. Never invent products, links, or prices — if you cannot verify',
   'an item, drop it and find another. It is better to return a few well-verified',
@@ -111,36 +120,46 @@ Return ONLY a JSON array — no prose, no markdown code fences — of objects sh
 ]
 Return nothing except the JSON array.`;
 
-// ---- 4. Call Claude with web search, resuming on pause_turn ------------------
-const tools = [
-  { type: WEB_SEARCH_TOOL, name: 'web_search' },
-  { type: WEB_FETCH_TOOL, name: 'web_fetch' },
-];
-const messages = [{ role: 'user', content: userPrompt }];
-
+// ---- 4. Ask the model for ideas ---------------------------------------------
 let response;
-for (let i = 0; ; i++) {
-  // Stream rather than make one blocking call: web search can keep the request
-  // running for minutes, and streaming keeps the connection alive instead of
-  // tripping the request timeout. effort 'medium' trims tool calls / runtime.
-  const stream = anthropic.messages.stream({
-    model: MODEL,
-    max_tokens: 16000,
-    thinking: { type: 'adaptive' },
-    output_config: { effort: 'medium' },
-    system: SYSTEM_PROMPT,
-    tools,
-    messages,
-  });
-  response = await stream.finalMessage();
 
-  // Server-side tools run an internal loop; if it hits its iteration cap the
-  // turn pauses. Re-send the assistant turn (no extra user message) to resume.
-  if (response.stop_reason === 'pause_turn' && i < MAX_CONTINUATIONS) {
-    messages.push({ role: 'assistant', content: response.content });
-    continue;
+if (SMOKE) {
+  // Cheap plumbing check: Haiku, no web search, no thinking — a fraction of a
+  // cent. Proves the whole path works before we pay for a real web-search run.
+  console.log('SMOKE MODE: Haiku, no web search. Inserted ideas are [TEST] placeholders.');
+  response = await anthropic.messages.create({
+    model: 'claude-haiku-4-5',
+    max_tokens: 2000,
+    system: 'Return only a JSON array, no prose and no code fences.',
+    messages: [{
+      role: 'user',
+      content: `Suggest 3 plausible gift ideas (from general knowledge — do NOT browse) for the person below, as a strict JSON array of objects with keys title, description, category, est_price, url.\n\n${interests}`,
+    }],
+  });
+} else {
+  // Real run: web search (capped), streamed so a multi-minute run doesn't time out.
+  const tools = [{ type: WEB_SEARCH_TOOL, name: 'web_search', max_uses: MAX_SEARCHES }];
+  const messages = [{ role: 'user', content: userPrompt }];
+  for (let i = 0; ; i++) {
+    const stream = anthropic.messages.stream({
+      model: MODEL,
+      max_tokens: 8000,
+      thinking: { type: 'adaptive' },
+      output_config: { effort: 'low' },
+      system: SYSTEM_PROMPT,
+      tools,
+      messages,
+    });
+    response = await stream.finalMessage();
+
+    // Basic web search has no code-execution container; on pause_turn just
+    // re-send the assistant turn (no extra user message) to resume.
+    if (response.stop_reason === 'pause_turn' && i < MAX_CONTINUATIONS) {
+      messages.push({ role: 'assistant', content: response.content });
+      continue;
+    }
+    break;
   }
-  break;
 }
 
 if (response.stop_reason === 'refusal') {
@@ -192,7 +211,7 @@ const rows = ideas
   .filter((it) => it && typeof it.title === 'string' && it.title.trim())
   .filter((it) => !existingLower.has(it.title.toLowerCase().trim()))
   .map((it) => ({
-    title: it.title.trim(),
+    title: (SMOKE ? '[TEST] ' : '') + it.title.trim(),
     description: typeof it.description === 'string' ? it.description.trim() : null,
     category: typeof it.category === 'string' ? it.category.trim() : null,
     est_price: typeof it.est_price === 'string' ? it.est_price.trim() : null,
