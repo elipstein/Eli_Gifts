@@ -6,7 +6,12 @@ name: Generate gift ideas
 on:
   schedule:
     - cron: "0 14 * * 1"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      smoke:
+        description: "Smoke test only (cheap: Haiku, no web search)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -26,3 +31,5 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          # Set by the "Smoke test only" checkbox on manual runs; empty on the cron.
+          SMOKE: ${{ inputs.smoke && '1' || '' }}
