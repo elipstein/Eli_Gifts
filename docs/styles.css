@@ -67,6 +67,15 @@ main { padding: 16px; max-width: 640px; margin: 0 auto; }
   border-radius: 999px;
   white-space: nowrap;
 }
+.src {
+  margin-left: auto;
+  font-size: .72rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.src-eli { color: #fff; background: var(--accent); }
+.src-ai { color: var(--muted); background: rgba(0, 0, 0, 0.05); }
 .card-desc { margin: 8px 0 0; color: #3a3f45; }
 
 .card-meta { display: flex; align-items: center; gap: 14px; margin-top: 10px; }

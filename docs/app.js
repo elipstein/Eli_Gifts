@@ -78,6 +78,11 @@ export function ideaCard(idea, actions = null) {
     el('h3', { class: 'card-title', text: idea.title || 'Untitled' }),
   ]);
   if (idea.category) head.append(el('span', { class: 'chip', text: idea.category }));
+  if (idea.source === 'eli') {
+    head.append(el('span', { class: 'src src-eli', text: '💌 From Eli' }));
+  } else if (idea.source === 'ai') {
+    head.append(el('span', { class: 'src src-ai', text: '✨ AI pick' }));
+  }
   card.append(head);
 
   if (idea.description) card.append(el('p', { class: 'card-desc', text: idea.description }));
