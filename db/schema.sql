@@ -4,12 +4,14 @@
 -- Run this once in the Supabase SQL editor (or via psql) after creating the project.
 --
 -- Privacy note: this project uses a SOFT / honor-system privacy model by design.
--- Row Level Security is intentionally left DISABLED so the browser clients (anon key)
--- can read ideas and update status (Keep/Pass) and insert "add my own idea" rows
--- directly. The data is deliberately readable in a browser network tab; the privacy
--- guarantee is "my page never queries kept items," not server-side access control.
--- Do NOT enable RLS here unless you are also adding policies — doing so will break
--- the Keep/Pass buttons and the add-idea form. (See README "Privacy model".)
+-- The privacy guarantee is "my page never queries kept items," NOT server-side
+-- access control — the data is deliberately readable with the public key.
+-- Row Level Security is ENABLED at the bottom of this file with permissive
+-- policies: the browser clients (publishable key) can still read ideas, update
+-- status (Keep/Pass), and insert "add my own idea" rows — but cannot DELETE.
+-- That keeps the app working, blocks a public wipe of the table, and clears
+-- Supabase's RLS advisor. The weekly generator uses the SECRET key, which
+-- bypasses RLS entirely. (See README "Privacy model".)
 
 create table if not exists public.ideas (
   id                 uuid         primary key default gen_random_uuid(),
@@ -29,3 +31,18 @@ create table if not exists public.ideas (
 -- Both pages filter by status (her.html: new + kept; index.html: passed),
 -- so a simple index on status keeps those reads cheap as the table grows.
 create index if not exists ideas_status_idx on public.ideas (status);
+
+-- Row-Level Security: on, with policies that allow exactly what the two pages do
+-- (read / add / update) and nothing else. With no DELETE policy, no one using the
+-- public (publishable) key can wipe the table. The secret key used by the weekly
+-- generator bypasses RLS, so its inserts are unaffected. Re-runnable: the policies
+-- are dropped first so this whole file stays idempotent.
+alter table public.ideas enable row level security;
+
+drop policy if exists "ideas public read"   on public.ideas;
+drop policy if exists "ideas public insert" on public.ideas;
+drop policy if exists "ideas public update" on public.ideas;
+
+create policy "ideas public read"   on public.ideas for select using (true);
+create policy "ideas public insert" on public.ideas for insert with check (true);
+create policy "ideas public update" on public.ideas for update using (true) with check (true);
