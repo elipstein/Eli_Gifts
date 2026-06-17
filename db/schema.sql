@@ -46,3 +46,14 @@ drop policy if exists "ideas public update" on public.ideas;
 create policy "ideas public read"   on public.ideas for select using (true);
 create policy "ideas public insert" on public.ideas for insert with check (true);
 create policy "ideas public update" on public.ideas for update using (true) with check (true);
+
+-- Keep-alive: free-tier Supabase projects pause after ~7 days of inactivity.
+-- A tiny separate table that .github/workflows/keepalive.yml writes to every
+-- few days (via the secret key) so the project stays awake. RLS is on with no
+-- policies, so the public key can't touch it and Supabase's advisor stays happy;
+-- the secret key bypasses RLS.
+create table if not exists public.keepalive (
+  id         bigint      generated always as identity primary key,
+  pinged_at  timestamptz not null default now()
+);
+alter table public.keepalive enable row level security;
