@@ -1,11 +1,12 @@
 name: Supabase keep-alive
 
-# Free-tier Supabase projects pause after ~7 days of inactivity. This writes a
-# tiny heartbeat to the database every ~3 days so the project never pauses.
-# (The weekly generator alone runs too close to the 7-day threshold to rely on.)
+# Free-tier Supabase pauses idle projects. A background write with the secret key
+# did NOT count as activity (it paused anyway), so this instead mimics a real
+# visitor: the public url + publishable key running a *varied* read of the ideas
+# table (see scripts/keepalive.mjs). Runs several times a day; also manual.
 on:
   schedule:
-    - cron: "0 8 */3 * *" # ≈ every 3 days at 08:00 UTC — comfortably under 7 days
+    - cron: "17 */4 * * *" # every 4 hours (offset off the hour to dodge scheduler congestion)
   workflow_dispatch: {}
 
 permissions:
@@ -22,6 +23,3 @@ jobs:
           cache: npm
       - run: npm ci
       - run: node scripts/keepalive.mjs
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
