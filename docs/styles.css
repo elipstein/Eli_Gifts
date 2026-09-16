@@ -126,3 +126,19 @@ main { padding: 16px; max-width: 640px; margin: 0 auto; }
 .add[open] > summary { color: var(--accent); }
 .add-form button[type="submit"] { width: 100%; margin-top: 4px; }
 .form-status { margin: 10px 0 0; font-size: .9rem; color: var(--muted); }
+
+.card-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+.dismiss-btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  min-height: 40px;
+}
+.dismiss-btn:hover { color: var(--ink); }
+.dismiss-btn:disabled { opacity: .5; }

@@ -45,7 +45,7 @@
   </main>
 
   <script type="module">
-    import { CONFIG_OK, fetchIdeas, addIdea, ideaCard, showMessage } from './app.js';
+    import { CONFIG_OK, fetchIdeas, addIdea, setStatus, ideaCard, el, showMessage } from './app.js';
 
     const passedList = document.getElementById('passed-list');
     const form = document.getElementById('add-form');
@@ -64,10 +64,31 @@
         // Only ever query passed items — kept items are never fetched here.
         const ideas = await fetchIdeas('passed', 'status_changed_at');
         if (!ideas.length) { showMessage(passedList, 'Nothing here yet.'); return; }
-        passedList.replaceChildren(...ideas.map((idea) => ideaCard(idea)));
+        passedList.replaceChildren(...ideas.map(renderPassedCard));
       } catch (e) {
         showMessage(passedList, 'Could not load ideas: ' + e.message);
       }
+    }
+
+    // Each passed idea gets a Dismiss button that hides it (sets status 'dismissed').
+    function renderPassedCard(idea) {
+      const dismiss = el('button', { class: 'dismiss-btn', type: 'button', text: '✕ Dismiss' });
+      const card = ideaCard(idea, el('div', { class: 'card-actions' }, [dismiss]));
+      dismiss.addEventListener('click', async () => {
+        dismiss.disabled = true;
+        try {
+          await setStatus(idea.id, 'dismissed');
+          card.classList.add('removing');
+          setTimeout(() => {
+            card.remove();
+            if (!passedList.querySelector('.card')) showMessage(passedList, 'Nothing here yet.');
+          }, 180);
+        } catch (e) {
+          dismiss.disabled = false;
+          alert('Could not dismiss: ' + e.message);
+        }
+      });
+      return card;
     }
 
     function flash(text) {
