@@ -24,7 +24,7 @@ create table if not exists public.ideas (
   source             text         not null default 'ai'
                        constraint ideas_source_check check (source in ('ai', 'eli')),
   status             text         not null default 'new'
-                       constraint ideas_status_check check (status in ('new', 'kept', 'passed')),
+                       constraint ideas_status_check check (status in ('new', 'kept', 'passed', 'dismissed')),
   status_changed_at  timestamptz
 );
 
@@ -57,3 +57,10 @@ create table if not exists public.keepalive (
   pinged_at  timestamptz not null default now()
 );
 alter table public.keepalive enable row level security;
+
+-- 'dismissed' status (added later): lets me hide passed items I'm not interested
+-- in on index.html. Idempotent — run this block once against an existing database
+-- to allow the new value (the inline CREATE TABLE above already includes it).
+alter table public.ideas drop constraint if exists ideas_status_check;
+alter table public.ideas add constraint ideas_status_check
+  check (status in ('new', 'kept', 'passed', 'dismissed'));
