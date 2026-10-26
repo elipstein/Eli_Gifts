@@ -31,6 +31,7 @@ const MODEL = 'claude-sonnet-4-6';
 // _20260209 does, which is what 400'd an earlier run. max_uses hard-caps spend.
 const WEB_SEARCH_TOOL = 'web_search_20250305';
 const MAX_SEARCHES = 8;
+const NO_REPEAT_CAP = 100; // most recent titles shown to the model; all are de-duped on insert
 const IDEAS_WANTED = '5 to 10';
 const MAX_CONTINUATIONS = 6; // safety cap for server-tool `pause_turn` resumes
 
@@ -69,7 +70,8 @@ const interests = await readFile(INTERESTS_PATH, 'utf8');
 // ---- 2. Pull every existing title (the no-repeat list) ----------------------
 const { data: existing, error: selectError } = await supabase
   .from('ideas')
-  .select('title');
+  .select('title')
+  .order('created_at', { ascending: false });
 if (selectError) {
   console.error('Failed to read existing ideas from Supabase:', selectError.message);
   process.exit(1);
@@ -88,8 +90,11 @@ const SYSTEM_PROMPT = [
   'ideas than to pad the list with guesses.',
 ].join(' ');
 
+// Show the model only the most recent titles to avoid; the de-dupe on insert
+// below still guards against ALL existing titles, so nothing repeats even when
+// this list is capped. Keeps each prompt bounded as the table keeps growing.
 const noRepeatList = existingTitles.length
-  ? existingTitles.map((t) => `- ${t}`).join('\n')
+  ? existingTitles.slice(0, NO_REPEAT_CAP).map((t) => `- ${t}`).join('\n')
   : '(none yet)';
 
 const userPrompt = `Find ${IDEAS_WANTED} fresh gift ideas for the person described below.
@@ -143,7 +148,7 @@ if (SMOKE) {
   for (let i = 0; ; i++) {
     const stream = anthropic.messages.stream({
       model: MODEL,
-      max_tokens: 8000,
+      max_tokens: 20000,
       thinking: { type: 'adaptive' },
       output_config: { effort: 'low' },
       system: SYSTEM_PROMPT,
